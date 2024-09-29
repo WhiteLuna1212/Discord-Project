@@ -5,4 +5,6 @@
 -API를 사용해보는 수준에 그치지 말고 결과를 적절히 가공하거나 유의미한 편의성을 제공할 것
 
 필요한 명령어들
+
 pip install discord.py
+pip install requests
