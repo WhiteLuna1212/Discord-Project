@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import requests
-import youtube_dl
+import yt_dlp
 import asyncio
 
 #디스코드/api 토큰 키들
