@@ -9,7 +9,7 @@ TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kc
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 
 # yt-dlp 사용 설정
-youtube_dl.utils.bug_reports_message = lambda: ''
+yt_dlp.utils.bug_reports_message = lambda: ''
 ytdl_format_options = {
     'format': 'bestaudio/best',
     'postprocessors': [{
@@ -32,7 +32,7 @@ ffmpeg_options = {
     'options': '-vn'
 }
 
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 #/로 명령 설정
 intents = discord.Intents.default()
@@ -115,9 +115,9 @@ async def 뉴스(ctx, *, keyword):
     else:
         await ctx.send("뉴스를 가져오는 데 실패했습니다.")
         
-# '/재생' 명령어에 반응하여 유튜브 링크 또는 검색어로 재생하는 기능
+# '/재생' 명령어에 반응하여 유튜브 링크를 재생하는 기능
 @bot.command()
-async def 재생(ctx, *, search_query):
+async def 재생(ctx, url):
     if not ctx.author.voice:
         await ctx.send("먼저 음성 채널에 들어가 주세요!")
         return
@@ -126,11 +126,10 @@ async def 재생(ctx, *, search_query):
     voice_client = await channel.connect()
 
     async with ctx.typing():
-        player = await YTDLSource.from_url(search_query, loop=bot.loop, search=True)
+        player = await YTDLSource.from_url(url, loop=bot.loop)
         voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
 
     await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
-
     
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
