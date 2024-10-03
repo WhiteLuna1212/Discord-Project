@@ -8,26 +8,19 @@ import asyncio
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 
-# yt-dlp 사용 설정
-yt_dlp.utils.bug_reports_message = lambda: ''
+# 쿠키 파일 경로 설정
+cookies_file_path = '/path/to/cookies.txt'
+
+# yt-dlp 설정
 ytdl_format_options = {
     'format': 'bestaudio/best',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '192',
-    }],
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-    'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': False,
+    'cookiefile': cookies_file,  # 쿠키 파일 사용
     'quiet': True,
     'no_warnings': True,
-    'default_search': 'auto',
-    'source_address': '0.0.0.0'
 }
+
 ffmpeg_options = {
     'options': '-vn'
 }
