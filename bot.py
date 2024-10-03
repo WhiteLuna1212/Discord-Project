@@ -4,6 +4,7 @@ import requests
 import yt_dlp
 import asyncio
 import os
+import random
 
 #디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
@@ -162,6 +163,43 @@ async def 검색재생(ctx, *, keyword):
         voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
 
     await ctx.send(f"'{keyword}'에 대한 검색 결과 재생 중: {player.title}")
+
+# '/추천재생' 명령어를 추가하여 AI 기반 추천 재생 기능
+@bot.command()
+async def 추천재생(ctx, *, keyword):
+    if not ctx.author.voice:
+        await ctx.send("먼저 음성 채널에 들어가 주세요!")
+        return
+
+    channel = ctx.author.voice.channel
+    voice_client = await channel.connect()
+
+    # 유튜브 API를 사용하여 주어진 키워드와 관련된 비디오를 검색
+    video_url = search_youtube(keyword)
+
+    if video_url is None:
+        await ctx.send(f"'{keyword}'에 대한 검색 결과를 찾을 수 없습니다.")
+        return
+
+    # 여기에 AI 추천 로직을 추가 (예: 비슷한 노래 추천)
+    recommended_videos = []
+    for _ in range(3):  # 3개의 추천 노래 가져오기
+        similar_video_url = search_youtube(keyword + " 추천")
+        if similar_video_url:
+            recommended_videos.append(similar_video_url)
+
+    if recommended_videos:
+        # 추천 중 랜덤으로 하나 선택
+        recommended_video = random.choice(recommended_videos)
+        await ctx.send(f"추천된 노래: {recommended_video}")
+
+        async with ctx.typing():
+            player = await YTDLSource.from_url(recommended_video, loop=bot.loop)
+            voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+
+        await ctx.send(f"'{keyword}'와 관련된 추천 재생 중: {player.title}")
+    else:
+        await ctx.send("추천할 노래를 찾을 수 없습니다.")
     
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
