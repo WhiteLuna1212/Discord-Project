@@ -9,7 +9,7 @@ TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kc
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 
 # 쿠키 파일 경로 설정
-cookies_file_path = '/path/to/cookies.txt'
+cookies_file_path = 'cookies.txt'
 
 # yt-dlp 설정
 ytdl_format_options = {
