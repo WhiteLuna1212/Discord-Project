@@ -3,10 +3,12 @@ from discord.ext import commands
 import requests
 import yt_dlp
 import asyncio
+import os
 
 #디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
+YOUTUBE_API_KEY = 'AIzaSyDXTFDsD1oK0rtbfYf-F0LoRwfDJ6LZkwA'
 
 # 쿠키 파일 경로 설정
 cookies_file = 'cookies.txt'
@@ -50,7 +52,21 @@ class YTDLSource(discord.PCMVolumeTransformer):
         
         filename = data['url']
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
-
+        
+# 유튜브 API를 이용해 키워드로 영상을 검색하는 함수
+def search_youtube(query):
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={YOUTUBE_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        search_results = response.json()['items']
+        if len(search_results) > 0:
+            video_id = search_results[0]['id']['videoId']
+            return f"https://www.youtube.com/watch?v={video_id}"
+        else:
+            return None
+    else:
+        return None
+        
 # 재생 제어를 위한 View 정의
 class PlayerControls(discord.ui.View):
     def __init__(self, voice_client):
@@ -97,6 +113,7 @@ def get_news(keyword):
         return news_list
     else:
         return None
+        
 # '/뉴스' 명령어에 반응하는 기능
 @bot.command()
 async def 뉴스(ctx, *, keyword):
@@ -123,6 +140,28 @@ async def 재생(ctx, url):
         voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
 
     await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
+
+# '/검색재생' 명령어에 대한 처리
+@bot.command()
+async def 검색재생(ctx, *, keyword):
+    if not ctx.author.voice:
+        await ctx.send("먼저 음성 채널에 들어가 주세요!")
+        return
+
+    channel = ctx.author.voice.channel
+    video_url = search_youtube(keyword)
+
+    if video_url is None:
+        await ctx.send(f"'{keyword}'에 대한 검색 결과를 찾을 수 없습니다.")
+        return
+
+    voice_client = await channel.connect()
+
+    async with ctx.typing():
+        player = await YTDLSource.from_url(video_url, loop=bot.loop)
+        voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+
+    await ctx.send(f"'{keyword}'에 대한 검색 결과 재생 중: {player.title}")
     
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
