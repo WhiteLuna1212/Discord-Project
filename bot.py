@@ -76,7 +76,7 @@ async def play_next(ctx):
     if guild_queues[guild_id]['queue']:
         next_song = guild_queues[guild_id]['queue'].pop(0)
         guild_queues[guild_id]['previous'].append(next_song)
-        
+
         player = await YTDLSource.from_url(next_song, loop=bot.loop)
         guild_queues[guild_id]['voice_client'].play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
 
@@ -172,4 +172,3 @@ async def 안녕(ctx):
 
 # 봇 실행
 bot.run(TOKEN)
-
