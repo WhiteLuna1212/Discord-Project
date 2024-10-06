@@ -3,8 +3,6 @@ from discord.ext import commands
 import requests
 import yt_dlp
 import asyncio
-import os
-import random
 
 #디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
@@ -88,8 +86,9 @@ class PlayerControls(discord.ui.View):
 
     @discord.ui.button(label="정지", style=discord.ButtonStyle.danger)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.voice_client.stop()
-        await interaction.response.send_message("노래를 정지했습니다.", ephemeral=True)
+        self.voice_client.stop()  # 노래 정지
+        await self.voice_client.disconnect()  # 봇이 음성 채널에서 나감
+        await interaction.response.send_message("노래를 정지하고 음성 채널을 떠납니다.", ephemeral=True)
 
 # 봇이 준비되었을 때 실행되는 이벤트
 @bot.event
