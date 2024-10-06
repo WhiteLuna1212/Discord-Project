@@ -4,8 +4,9 @@ import requests
 import yt_dlp
 import asyncio
 import os
+import random
 
-# 디스코드/api 토큰 키들
+#디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 YOUTUBE_API_KEY = 'AIzaSyDXTFDsD1oK0rtbfYf-F0LoRwfDJ6LZkwA'
@@ -33,9 +34,6 @@ ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
-
-# 음악 재생 큐 설정
-guild_queues = {}  # 서버별로 재생 큐를 저장할 딕셔너리
 
 # 유튜브에서 오디오를 추출하는 클래스
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -70,17 +68,6 @@ def search_youtube(query):
     else:
         return None
 
-# 큐에 있는 다음 곡을 재생하는 함수
-async def play_next(ctx):
-    guild_id = ctx.guild.id
-    if guild_queues[guild_id]['queue']:
-        next_song = guild_queues[guild_id]['queue'].pop(0)  # 큐에서 다음 곡을 꺼내옴
-        player = await YTDLSource.from_url(next_song, loop=bot.loop)
-        guild_queues[guild_id]['voice_client'].play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-        await ctx.send(f"지금 재생 중: {player.title}")
-    else:
-        await guild_queues[guild_id]['voice_client'].disconnect()
-
 # 재생 제어를 위한 View 정의
 class PlayerControls(discord.ui.View):
     def __init__(self, voice_client):
@@ -104,6 +91,11 @@ class PlayerControls(discord.ui.View):
         self.voice_client.stop()
         await interaction.response.send_message("노래를 정지했습니다.", ephemeral=True)
 
+# 봇이 준비되었을 때 실행되는 이벤트
+@bot.event
+async def on_ready():
+    print(f'봇이 로그인되었습니다. {bot.user.name}')
+
 # '/재생' 명령어에 반응하여 유튜브 링크 또는 키워드로 재생하는 기능
 @bot.command()
 async def 재생(ctx, *, input):
@@ -112,15 +104,7 @@ async def 재생(ctx, *, input):
         return
 
     channel = ctx.author.voice.channel
-    guild_id = ctx.guild.id
-
-    # 서버별 큐 초기화
-    if guild_id not in guild_queues:
-        guild_queues[guild_id] = {'queue': [], 'voice_client': None}
-
-    # 음성 클라이언트 연결
-    if ctx.voice_client is None:
-        guild_queues[guild_id]['voice_client'] = await channel.connect()
+    voice_client = await channel.connect()
 
     # 입력이 URL인지 여부를 체크
     if input.startswith("http://") or input.startswith("https://"):
@@ -132,15 +116,11 @@ async def 재생(ctx, *, input):
         await ctx.send(f"'{input}'에 대한 검색 결과를 찾을 수 없습니다.")
         return
 
-    # 재생 중이면 큐에 추가하고 아니면 바로 재생
-    if ctx.voice_client.is_playing():
-        guild_queues[guild_id]['queue'].append(url)
-        await ctx.send(f"'{input}'이(가) 큐에 추가되었습니다.")
-    else:
-        await play_next(ctx)
+    async with ctx.typing():
+        player = await YTDLSource.from_url(url, loop=bot.loop)
+        voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
 
-    # 재생 제어 UI 표시
-    await ctx.send("재생 제어:", view=PlayerControls(ctx.voice_client))
+    await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
 
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
