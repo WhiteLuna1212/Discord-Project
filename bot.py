@@ -76,7 +76,7 @@ async def play_next(ctx):
     if guild_queues[guild_id]['queue']:
         next_song = guild_queues[guild_id]['queue'].pop(0)
         guild_queues[guild_id]['previous'].append(next_song)
-
+        
         player = await YTDLSource.from_url(next_song, loop=bot.loop)
         guild_queues[guild_id]['voice_client'].play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
 
@@ -142,7 +142,11 @@ async def 재생(ctx, *, input):
 
     # 서버별 큐 초기화
     if guild_id not in guild_queues:
-        guild_queues[guild_id] = {'queue': [], 'previous': [], 'voice_client': await channel.connect()}
+        guild_queues[guild_id] = {'queue': [], 'previous': [], 'voice_client': None}
+
+    # 음성 채널에 연결되지 않았으면 연결
+    if ctx.voice_client is None:
+        guild_queues[guild_id]['voice_client'] = await channel.connect()
 
     # 입력이 URL인지 여부를 체크
     if input.startswith("http://") or input.startswith("https://"):
