@@ -4,7 +4,7 @@ import requests
 import yt_dlp
 import asyncio
 
-# 디스코드/api 토큰 키들
+#디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 YOUTUBE_API_KEY = 'AIzaSyDXTFDsD1oK0rtbfYf-F0LoRwfDJ6LZkwA'
@@ -91,6 +91,31 @@ class MusicQueue:
 # 재생 대기열 객체 생성
 music_queue = MusicQueue()
 
+# 사용자 이력 저장을 위한 딕셔너리
+user_song_history = {}
+user_news_history = {}
+
+# 유튜브 노래 추천 함수
+def recommend_songs(query):
+    # 'query'와 관련된 5개의 추천곡을 검색
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&maxResults=5&key={YOUTUBE_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        search_results = response.json()['items']
+        return [f"https://www.youtube.com/watch?v={item['id']['videoId']}" for item in search_results]
+    else:
+        return []
+
+# 뉴스 추천 함수
+def recommend_news(query):
+    url = f'https://newsapi.org/v2/everything?q={query}&pageSize=5&apiKey={NEWS_API_KEY}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        articles = response.json().get('articles', [])
+        return articles
+    else:
+        return []
+
 # 재생 제어를 위한 View 정의
 class PlayerControls(discord.ui.View):
     def __init__(self, voice_client):
@@ -165,6 +190,11 @@ async def 재생(ctx, *, input):
 
     music_queue.add_song(url)  # 노래를 재생 대기열에 추가
 
+    # 사용자 노래 이력 저장
+    if ctx.author.id not in user_song_history:
+        user_song_history[ctx.author.id] = []
+    user_song_history[ctx.author.id].append(input)
+
     if not voice_client.is_playing():  # 재생 중인 노래가 없을 때만 새로운 노래 재생
         async with ctx.typing():
             player = await YTDLSource.from_url(url, loop=bot.loop)
@@ -173,6 +203,42 @@ async def 재생(ctx, *, input):
         await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
     else:
         await ctx.send(f"{input} 곡을 대기열에 추가했습니다.")
+
+# '/뉴스추천' 명령어로 사용자에게 추천 뉴스 제공
+@bot.command()
+async def 뉴스추천(ctx):
+    if ctx.author.id not in user_news_history or not user_news_history[ctx.author.id]:
+        await ctx.send("추천할 뉴스가 없습니다.")
+        return
+
+    # 사용자 검색 이력 기반으로 추천 뉴스 제공
+    recent_news_query = user_news_history[ctx.author.id][-1]
+    recommended_articles = recommend_news(recent_news_query)
+    
+    if recommended_articles:
+        await ctx.send(f"'{recent_news_query}'에 대한 추천 기사입니다:\n")
+        for article in recommended_articles:
+            await ctx.send(f"{article['title']} - {article['url']}")
+    else:
+        await ctx.send("추천 기사를 가져올 수 없습니다.")
+
+# '/노래추천' 명령어로 사용자에게 추천 곡 제공
+@bot.command()
+async def 노래추천(ctx):
+    if ctx.author.id not in user_song_history or not user_song_history[ctx.author.id]:
+        await ctx.send("추천할 노래가 없습니다.")
+        return
+
+    # 최근에 들었던 노래 기반으로 추천
+    recent_song_query = user_song_history[ctx.author.id][-1]
+    recommended_songs = recommend_songs(recent_song_query)
+    
+    if recommended_songs:
+        await ctx.send(f"'{recent_song_query}'에 대한 추천 곡입니다:\n")
+        for song_url in recommended_songs:
+            await ctx.send(song_url)
+    else:
+        await ctx.send("추천 곡을 가져올 수 없습니다.")
 
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
