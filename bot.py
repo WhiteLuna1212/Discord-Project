@@ -4,7 +4,7 @@ import requests
 import yt_dlp
 import asyncio
 
-#디스코드/api 토큰 키들
+# 디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 YOUTUBE_API_KEY = 'AIzaSyDXTFDsD1oK0rtbfYf-F0LoRwfDJ6LZkwA'
@@ -146,7 +146,12 @@ async def 재생(ctx, *, input):
         return
 
     channel = ctx.author.voice.channel
-    voice_client = await channel.connect()
+
+    # 봇이 이미 음성 채널에 연결되어 있는지 확인
+    if ctx.voice_client is None:
+        voice_client = await channel.connect()  # 연결되어 있지 않으면 음성 채널에 연결
+    else:
+        voice_client = ctx.voice_client  # 이미 연결되어 있으면 현재 연결을 사용
 
     # 입력이 URL인지 여부를 체크
     if input.startswith("http://") or input.startswith("https://"):
