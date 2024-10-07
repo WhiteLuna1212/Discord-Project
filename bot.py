@@ -204,6 +204,23 @@ async def 재생(ctx, *, input):
     else:
         await ctx.send(f"{input} 곡을 대기열에 추가했습니다.")
 
+# '/뉴스' 명령어로 뉴스 검색 기능 추가
+@bot.command()
+async def 뉴스(ctx, *, query):
+    url = f'https://newsapi.org/v2/everything?q={query}&pageSize=5&apiKey={NEWS_API_KEY}'
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        articles = response.json().get('articles', [])
+        if articles:
+            await ctx.send(f"'{query}'에 대한 뉴스 검색 결과입니다:\n")
+            for article in articles:
+                await ctx.send(f"{article['title']} - {article['url']}")
+        else:
+            await ctx.send(f"'{query}'에 대한 검색 결과가 없습니다.")
+    else:
+        await ctx.send(f"뉴스를 가져오는 데 실패했습니다. 다시 시도해 주세요.")
+
 # '/뉴스추천' 명령어로 사용자에게 추천 뉴스 제공
 @bot.command()
 async def 뉴스추천(ctx):
