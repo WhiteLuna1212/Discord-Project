@@ -206,61 +206,58 @@ async def 재생(ctx, *, input):
 
 # '/뉴스' 명령어로 뉴스 검색 기능 추가
 @bot.command()
-async def 뉴스(ctx, *, query):
-    url = f'https://newsapi.org/v2/everything?q={query}&pageSize=5&apiKey={NEWS_API_KEY}'
+async def 뉴스(ctx, *, keyword):
+    url = f'https://newsapi.org/v2/everything?q={keyword}&pageSize=5&apiKey={NEWS_API_KEY}'
     response = requests.get(url)
 
     if response.status_code == 200:
         articles = response.json().get('articles', [])
         if articles:
-            await ctx.send(f"'{query}'에 대한 뉴스 검색 결과입니다:\n")
+            await ctx.send(f"'{keyword}'에 대한 뉴스 검색 결과입니다:\n")
             for article in articles:
-                await ctx.send(f"{article['title']} - {article['url']}")
+                await ctx.send(f"제목: {article['title']}\n링크: {article['url']}")
+            
+            # 사용자 뉴스 이력 저장
+            if ctx.author.id not in user_news_history:
+                user_news_history[ctx.author.id] = []
+            user_news_history[ctx.author.id].append(keyword)
         else:
-            await ctx.send(f"'{query}'에 대한 검색 결과가 없습니다.")
+            await ctx.send(f"'{keyword}'에 대한 뉴스 기사가 없습니다.")
     else:
-        await ctx.send(f"뉴스를 가져오는 데 실패했습니다. 다시 시도해 주세요.")
+        await ctx.send(f"뉴스를 검색하는 중 오류가 발생했습니다. 나중에 다시 시도해주세요.")
 
-# '/뉴스추천' 명령어로 사용자에게 추천 뉴스 제공
-@bot.command()
-async def 뉴스추천(ctx):
-    if ctx.author.id not in user_news_history or not user_news_history[ctx.author.id]:
-        await ctx.send("추천할 뉴스가 없습니다.")
-        return
-
-    # 사용자 검색 이력 기반으로 추천 뉴스 제공
-    recent_news_query = user_news_history[ctx.author.id][-1]
-    recommended_articles = recommend_news(recent_news_query)
-    
-    if recommended_articles:
-        await ctx.send(f"'{recent_news_query}'에 대한 추천 기사입니다:\n")
-        for article in recommended_articles:
-            await ctx.send(f"{article['title']} - {article['url']}")
-    else:
-        await ctx.send("추천 기사를 가져올 수 없습니다.")
-
-# '/노래추천' 명령어로 사용자에게 추천 곡 제공
+# '/노래추천' 명령어로 노래 추천 기능 추가
 @bot.command()
 async def 노래추천(ctx):
     if ctx.author.id not in user_song_history or not user_song_history[ctx.author.id]:
-        await ctx.send("추천할 노래가 없습니다.")
+        await ctx.send("노래 추천을 제공할 검색 기록이 없습니다.")
         return
 
-    # 최근에 들었던 노래 기반으로 추천
-    recent_song_query = user_song_history[ctx.author.id][-1]
-    recommended_songs = recommend_songs(recent_song_query)
-    
-    if recommended_songs:
-        await ctx.send(f"'{recent_song_query}'에 대한 추천 곡입니다:\n")
-        for song_url in recommended_songs:
-            await ctx.send(song_url)
+    # 가장 최근 검색어를 기반으로 추천
+    last_query = user_song_history[ctx.author.id][-1]
+    recommendations = recommend_songs(last_query)
+    if recommendations:
+        await ctx.send(f"'{last_query}'를 기반으로 한 노래 추천 목록입니다:\n")
+        for recommendation in recommendations:
+            await ctx.send(recommendation)
     else:
-        await ctx.send("추천 곡을 가져올 수 없습니다.")
+        await ctx.send("추천할 노래를 찾을 수 없습니다.")
 
-# '/안녕' 명령어에 반응하는 기능
+# '/뉴스추천' 명령어로 뉴스 추천 기능 추가
 @bot.command()
-async def 안녕(ctx):
-    await ctx.send(f'{ctx.author.mention} 안녕?')
+async def 뉴스추천(ctx):
+    if ctx.author.id not in user_news_history or not user_news_history[ctx.author.id]:
+        await ctx.send("뉴스 추천을 제공할 검색 기록이 없습니다.")
+        return
 
-# 봇 실행
+    # 가장 최근 검색어를 기반으로 추천
+    last_keyword = user_news_history[ctx.author.id][-1]
+    recommendations = recommend_news(last_keyword)
+    if recommendations:
+        await ctx.send(f"'{last_keyword}'를 기반으로 한 뉴스 추천 목록입니다:\n")
+        for article in recommendations:
+            await ctx.send(f"제목: {article['title']}\n링크: {article['url']}")
+    else:
+        await ctx.send("추천할 뉴스를 찾을 수 없습니다.")
+
 bot.run(TOKEN)
