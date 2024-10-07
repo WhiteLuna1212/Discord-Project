@@ -4,7 +4,7 @@ import requests
 import yt_dlp
 import asyncio
 
-# 디스코드/api 토큰 키들
+#디스코드/api 토큰 키들
 TOKEN = 'MTI4OTgwNDc0MzIwNzU1NTE2Mg.GIQ8Zs.HIyj9iBBVg60ybb0xfEBgewuM5EW04w-oM6kcE'
 NEWS_API_KEY = 'fcb4a607ef834352974ce2247eb45839'
 YOUTUBE_API_KEY = 'AIzaSyDXTFDsD1oK0rtbfYf-F0LoRwfDJ6LZkwA'
@@ -17,7 +17,7 @@ ytdl_format_options = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'nocheckcertificate': True,
-    'cookiefile': cookies_file,
+    'cookiefile': cookies_file,  # 쿠키 파일 사용
     'quiet': True,
     'no_warnings': True,
 }
@@ -66,23 +66,45 @@ def search_youtube(query):
     else:
         return None
 
-# 재생 큐 설정
-song_queue = []
+# 재생 대기열을 관리하는 클래스
+class MusicQueue:
+    def __init__(self):
+        self.queue = []
+        self.current_index = 0
 
-# 곡이 끝났을 때 다음 곡을 재생하는 함수
-async def play_next_song(voice_client):
-    if len(song_queue) > 0:
-        next_song = song_queue.pop(0)
-        player = await YTDLSource.from_url(next_song, loop=bot.loop)
-        voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_song(voice_client), bot.loop))
-    else:
-        await voice_client.disconnect()
+    def add_song(self, song):
+        self.queue.append(song)
+
+    def next_song(self):
+        if self.current_index < len(self.queue) - 1:
+            self.current_index += 1
+        return self.queue[self.current_index]
+
+    def prev_song(self):
+        if self.current_index > 0:
+            self.current_index -= 1
+        return self.queue[self.current_index]
+
+    def current_song(self):
+        return self.queue[self.current_index]
+
+# 재생 대기열 객체 생성
+music_queue = MusicQueue()
 
 # 재생 제어를 위한 View 정의
 class PlayerControls(discord.ui.View):
     def __init__(self, voice_client):
         super().__init__()
         self.voice_client = voice_client
+
+    @discord.ui.button(label="이전곡", style=discord.ButtonStyle.secondary)
+    async def prev_song(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.stop()  # 현재 곡 정지
+            song = music_queue.prev_song()  # 이전 곡 가져오기
+            player = await YTDLSource.from_url(song, loop=bot.loop)
+            self.voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+            await interaction.response.send_message(f"이전 곡: {player.title}", ephemeral=True)
 
     @discord.ui.button(label="일시 정지", style=discord.ButtonStyle.primary)
     async def pause(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -102,6 +124,20 @@ class PlayerControls(discord.ui.View):
         await self.voice_client.disconnect()  # 봇이 음성 채널에서 나감
         await interaction.response.send_message("노래를 정지하고 음성 채널을 떠납니다.", ephemeral=True)
 
+    @discord.ui.button(label="다음곡", style=discord.ButtonStyle.secondary)
+    async def next_song(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.stop()  # 현재 곡 정지
+            song = music_queue.next_song()  # 다음 곡 가져오기
+            player = await YTDLSource.from_url(song, loop=bot.loop)
+            self.voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+            await interaction.response.send_message(f"다음 곡: {player.title}", ephemeral=True)
+
+# 봇이 준비되었을 때 실행되는 이벤트
+@bot.event
+async def on_ready():
+    print(f'봇이 로그인되었습니다. {bot.user.name}')
+
 # '/재생' 명령어에 반응하여 유튜브 링크 또는 키워드로 재생하는 기능
 @bot.command()
 async def 재생(ctx, *, input):
@@ -110,6 +146,7 @@ async def 재생(ctx, *, input):
         return
 
     channel = ctx.author.voice.channel
+    voice_client = await channel.connect()
 
     # 입력이 URL인지 여부를 체크
     if input.startswith("http://") or input.startswith("https://"):
@@ -121,26 +158,21 @@ async def 재생(ctx, *, input):
         await ctx.send(f"'{input}'에 대한 검색 결과를 찾을 수 없습니다.")
         return
 
-    voice_client = ctx.guild.voice_client
+    music_queue.add_song(url)  # 노래를 재생 대기열에 추가
 
-    if voice_client and voice_client.is_connected():
-        song_queue.append(url)  # 이미 재생 중일 경우 큐에 추가
-        await ctx.send(f"곡이 추가되었습니다: {url}")
-    else:
-        voice_client = await channel.connect()
-        player = await YTDLSource.from_url(url, loop=bot.loop)
-        voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_song(voice_client), bot.loop))
+    if not voice_client.is_playing():  # 재생 중인 노래가 없을 때만 새로운 노래 재생
+        async with ctx.typing():
+            player = await YTDLSource.from_url(url, loop=bot.loop)
+            voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+
         await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
+    else:
+        await ctx.send(f"{input} 곡을 대기열에 추가했습니다.")
 
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
 async def 안녕(ctx):
     await ctx.send(f'{ctx.author.mention} 안녕?')
-
-# 봇이 준비되었을 때 실행되는 이벤트
-@bot.event
-async def on_ready():
-    print(f'봇이 로그인되었습니다. {bot.user.name}')
 
 # 봇 실행
 bot.run(TOKEN)
