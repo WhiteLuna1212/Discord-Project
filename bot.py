@@ -91,9 +91,47 @@ class MusicQueue:
 # 재생 대기열 객체 생성
 music_queue = MusicQueue()
 
-# 사용자가 재생한 노래 목록과 조회한 뉴스 목록
-user_song_history = {}
-user_news_history = {}
+# 재생 제어를 위한 View 정의
+class PlayerControls(discord.ui.View):
+    def __init__(self, voice_client):
+        super().__init__()
+        self.voice_client = voice_client
+
+    @discord.ui.button(label="이전곡", style=discord.ButtonStyle.secondary)
+    async def prev_song(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.stop()  # 현재 곡 정지
+            song = music_queue.prev_song()  # 이전 곡 가져오기
+            player = await YTDLSource.from_url(song, loop=bot.loop)
+            self.voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+            await interaction.response.send_message(f"이전 곡: {player.title}", ephemeral=True)
+
+    @discord.ui.button(label="일시 정지", style=discord.ButtonStyle.primary)
+    async def pause(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.pause()
+            await interaction.response.send_message("노래를 일시 정지했습니다.", ephemeral=True)
+
+    @discord.ui.button(label="재개", style=discord.ButtonStyle.success)
+    async def resume(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_paused():
+            self.voice_client.resume()
+            await interaction.response.send_message("노래를 다시 재생합니다.", ephemeral=True)
+
+    @discord.ui.button(label="정지", style=discord.ButtonStyle.danger)
+    async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.voice_client.stop()  # 노래 정지
+        await self.voice_client.disconnect()  # 봇이 음성 채널에서 나감
+        await interaction.response.send_message("노래를 정지하고 음성 채널을 떠납니다.", ephemeral=True)
+
+    @discord.ui.button(label="다음곡", style=discord.ButtonStyle.secondary)
+    async def next_song(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.stop()  # 현재 곡 정지
+            song = music_queue.next_song()  # 다음 곡 가져오기
+            player = await YTDLSource.from_url(song, loop=bot.loop)
+            self.voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
+            await interaction.response.send_message(f"다음 곡: {player.title}", ephemeral=True)
 
 # 봇이 준비되었을 때 실행되는 이벤트
 @bot.event
@@ -127,71 +165,14 @@ async def 재생(ctx, *, input):
 
     music_queue.add_song(url)  # 노래를 재생 대기열에 추가
 
-    # 사용자 노래 이력 추가
-    if ctx.author.id not in user_song_history:
-        user_song_history[ctx.author.id] = []
-    user_song_history[ctx.author.id].append(url)
-
     if not voice_client.is_playing():  # 재생 중인 노래가 없을 때만 새로운 노래 재생
         async with ctx.typing():
             player = await YTDLSource.from_url(url, loop=bot.loop)
             voice_client.play(player, after=lambda e: print(f'오류 발생: {e}') if e else None)
 
-        await ctx.send(f"지금 재생 중: {player.title}")
+        await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
     else:
         await ctx.send(f"{input} 곡을 대기열에 추가했습니다.")
-
-# '/뉴스' 명령어에 반응하여 뉴스 기사를 가져오는 기능
-@bot.command()
-async def 뉴스(ctx, *, query):
-    url = f'https://newsapi.org/v2/everything?q={query}&apiKey={NEWS_API_KEY}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        articles = response.json().get('articles', [])
-        if articles:
-            # 사용자 뉴스 이력 추가
-            if ctx.author.id not in user_news_history:
-                user_news_history[ctx.author.id] = []
-            user_news_history[ctx.author.id].append(query)
-
-            embed = discord.Embed(title=f"{query}에 대한 뉴스", color=0x1F8B4C)
-            for article in articles[:5]:  # 최대 5개의 기사만 표시
-                embed.add_field(name=article['title'], value=article['url'], inline=False)
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send("해당하는 기사를 찾을 수 없습니다.")
-    else:
-        await ctx.send("뉴스를 가져오는 중 오류가 발생했습니다.")
-
-# '/뉴스추천' 명령어로 사용자에게 추천 뉴스 제공
-@bot.command()
-async def 뉴스추천(ctx):
-    if ctx.author.id not in user_news_history or not user_news_history[ctx.author.id]:
-        await ctx.send("추천할 뉴스가 없습니다.")
-        return
-
-    # 사용자 검색 이력 기반으로 추천 뉴스 생성 (단순히 마지막 검색어 기반으로)
-    last_query = user_news_history[ctx.author.id][-1]
-    await ctx.send(f"'{last_query}'에 대한 추천 뉴스 목록입니다: 이건 어떻게 되나요?")
-
-    # 실제 추천 로직은 더 복잡할 수 있습니다.
-    recommended_articles = [f"추천 기사 {i+1}: http://example.com/article{i+1}" for i in range(5)]
-    await ctx.send("\n".join(recommended_articles))
-
-# '/노래추천' 명령어로 사용자에게 추천 노래 제공
-@bot.command()
-async def 노래추천(ctx):
-    if ctx.author.id not in user_song_history or not user_song_history[ctx.author.id]:
-        await ctx.send("추천할 노래가 없습니다.")
-        return
-
-    # 사용자 재생 이력 기반으로 추천 노래 생성 (단순히 마지막 재생 노래 기반으로)
-    last_song = user_song_history[ctx.author.id][-1]
-    await ctx.send(f"최근에 재생한 노래 '{last_song}'를 기반으로 추천 노래 목록입니다: 이런 것은 어떠신가요?")
-
-    # 실제 추천 로직은 더 복잡할 수 있습니다.
-    recommended_songs = [f"추천 노래 {i+1}: http://example.com/song{i+1}" for i in range(5)]
-    await ctx.send("\n".join(recommended_songs))
 
 # '/안녕' 명령어에 반응하는 기능
 @bot.command()
