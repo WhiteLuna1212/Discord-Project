@@ -78,6 +78,30 @@ async def play_next_song(voice_client):
     else:
         await voice_client.disconnect()
 
+# 재생 제어를 위한 View 정의
+class PlayerControls(discord.ui.View):
+    def __init__(self, voice_client):
+        super().__init__()
+        self.voice_client = voice_client
+
+    @discord.ui.button(label="일시 정지", style=discord.ButtonStyle.primary)
+    async def pause(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_playing():
+            self.voice_client.pause()
+            await interaction.response.send_message("노래를 일시 정지했습니다.", ephemeral=True)
+
+    @discord.ui.button(label="재개", style=discord.ButtonStyle.success)
+    async def resume(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.voice_client.is_paused():
+            self.voice_client.resume()
+            await interaction.response.send_message("노래를 다시 재생합니다.", ephemeral=True)
+
+    @discord.ui.button(label="정지", style=discord.ButtonStyle.danger)
+    async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.voice_client.stop()  # 노래 정지
+        await self.voice_client.disconnect()  # 봇이 음성 채널에서 나감
+        await interaction.response.send_message("노래를 정지하고 음성 채널을 떠납니다.", ephemeral=True)
+
 # '/재생' 명령어에 반응하여 유튜브 링크 또는 키워드로 재생하는 기능
 @bot.command()
 async def 재생(ctx, *, input):
@@ -106,7 +130,12 @@ async def 재생(ctx, *, input):
         voice_client = await channel.connect()
         player = await YTDLSource.from_url(url, loop=bot.loop)
         voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next_song(voice_client), bot.loop))
-        await ctx.send(f"지금 재생 중: {player.title}")
+        await ctx.send(f"지금 재생 중: {player.title}", view=PlayerControls(voice_client))
+
+# '/안녕' 명령어에 반응하는 기능
+@bot.command()
+async def 안녕(ctx):
+    await ctx.send(f'{ctx.author.mention} 안녕?')
 
 # 봇이 준비되었을 때 실행되는 이벤트
 @bot.event
