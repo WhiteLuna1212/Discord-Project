@@ -7,5 +7,7 @@
 필요한 명령어들
 
 pip install discord.py
+
 pip install requests
+
 pip install yt-dlp discord.py
