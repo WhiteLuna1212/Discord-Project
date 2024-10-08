@@ -10,4 +10,9 @@ pip install discord.py
 
 pip install requests
 
-pip install yt-dlp discord.py
+pip install yt-dlp
+
+pip install pynacl
+
+sudo apt install ffmpeg
+
