@@ -10,7 +10,7 @@ pip install discord.py
 
 pip install requests
 
-pip install yt-dlp
+pip install yt-dlp discord.py
 
 pip install pynacl
 
